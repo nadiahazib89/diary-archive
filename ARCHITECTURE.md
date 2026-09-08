@@ -58,11 +58,12 @@ This means:
 
 ### Storage model
 
-Everything durable is stored via the artifact storage API
-(`window.storage`), scoped privately to the user (never shared). Keys are
-kept coarse-grained on purpose — one JSON blob per diary's pages, rather than
-one key per page — to stay well within storage rate limits even for a
-400-page diary:
+Everything durable is stored in the browser's own IndexedDB (via the small
+[idb-keyval](https://github.com/jakearchibald/idb-keyval) helper library),
+scoped to that one browser on that one device — there is no server or
+database involved. Keys are kept coarse-grained on purpose — one JSON blob
+per diary's pages, rather than one key per page — to stay fast and simple
+even for a 400-page diary:
 
 | Key | Contents |
 |---|---|
@@ -79,6 +80,14 @@ The raw PDF bytes are **not** persisted (they're too large for practical
 browser storage across a multi-diary collection). Each session, the user
 re-selects the file locally; the tool matches it against the stored registry
 and resumes from the saved page.
+
+**IndexedDB is per-browser, per-device.** It's real, durable storage — it
+survives closing the tab and restarting the computer — but it doesn't sync
+across browsers or devices, and it can be cleared if the user wipes site
+data. The Library tab includes a **Download backup** / **Restore backup**
+pair that serializes the entire registry, context pack, and every diary's
+confirmed pages to a single downloadable JSON file, so users have a way to
+move data between browsers or protect against data loss.
 
 ### Transcription request shape
 

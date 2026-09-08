@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
 <style>
   :root{
     --bg: #1B1E24;
@@ -205,6 +206,16 @@
     <div class="panel" id="libraryList">
       <div class="empty">No diaries added yet in this session.</div>
     </div>
+    <div class="panel" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:'Source Serif 4',serif;font-size:14px;">Backup</div>
+        <div class="badge">Your progress lives in this browser only. Download a backup occasionally, and always before switching browsers or computers.</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="ghost small" id="exportBtn">Download backup</button>
+        <label class="ghost small" style="cursor:pointer;">Restore backup<input type="file" id="importInput" accept="application/json" style="display:none;"></label>
+      </div>
+    </div>
   </section>
 
   <!-- TRANSCRIBE -->
@@ -235,14 +246,22 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-/* ---------- storage helpers ---------- */
+/* ---------- storage helpers ----------
+   Uses IndexedDB (via idb-keyval) so progress lives in THIS browser,
+   on THIS device — independent of any hosting environment. See the
+   Export/Import backup feature below for moving data between browsers
+   or devices, or protecting against a cleared browser cache. */
 async function storeGet(key){
-  try{ const r = await window.storage.get(key, false); return r ? JSON.parse(r.value) : null; }
-  catch(e){ return null; }
+  try{ const v = await idbKeyval.get(key); return v === undefined ? null : v; }
+  catch(e){ console.error('storage get failed', key, e); return null; }
 }
 async function storeSet(key, value){
-  try{ await window.storage.set(key, JSON.stringify(value), false); return true; }
+  try{ await idbKeyval.set(key, value); return true; }
   catch(e){ console.error('storage set failed', key, e); return false; }
+}
+async function storeKeys(){
+  try{ return await idbKeyval.keys(); }
+  catch(e){ return []; }
 }
 
 /* ---------- state ---------- */
@@ -263,7 +282,73 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderGlossary();
   wireTabs();
   wireUpload();
+  wireBackup();
 });
+
+/* ---------- backup / restore ---------- */
+function wireBackup(){
+  document.getElementById('exportBtn').addEventListener('click', exportBackup);
+  document.getElementById('importInput').addEventListener('change', e=>{
+    if(e.target.files[0]) importBackup(e.target.files[0]);
+  });
+}
+
+async function exportBackup(){
+  const data = {exportedAt: new Date().toISOString(), registry, contextPack, diaries: {}};
+  for(const d of registry){
+    data.diaries[d.id] = {
+      pages: await getDiaryPages(d.id),
+      progress: (await storeGet('progress:'+d.id)) || {currentPage:1}
+    };
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = 'diary-archive-backup-'+stamp+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded');
+}
+
+async function importBackup(file){
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(!data.registry || !data.diaries){ showToast('That file doesn\'t look like a valid backup.'); return; }
+
+    const proceed = confirm('This will merge the backup into your current data, overwriting any matching diaries\' pages and progress. Continue?');
+    if(!proceed) return;
+
+    for(const entry of data.registry){
+      if(!registry.some(r=>r.id===entry.id)) registry.push(entry);
+    }
+    await storeSet('diary-registry', registry);
+
+    if(data.contextPack){
+      for(const key of ['names','slang','quirks']){
+        for(const term of (data.contextPack[key]||[])){
+          if(!contextPack[key].some(t=>t.term.toLowerCase()===term.term.toLowerCase())){
+            contextPack[key].push(term);
+          }
+        }
+      }
+      await storeSet('context-pack', contextPack);
+    }
+
+    for(const [id, d] of Object.entries(data.diaries)){
+      await saveDiaryPages(id, d.pages || {});
+      await storeSet('progress:'+id, d.progress || {currentPage:1});
+    }
+
+    showToast('Backup restored — re-select the matching PDF(s) in Library to continue.');
+    renderLibrary();
+    renderGlossary();
+  }catch(err){
+    console.error(err);
+    showToast('Could not read that backup file.');
+  }
+}
 
 function wireTabs(){
   document.querySelectorAll('nav.tabs button').forEach(btn=>{

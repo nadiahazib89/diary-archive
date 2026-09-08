@@ -21,11 +21,11 @@ It runs entirely in the browser. No backend, no install, no server to pay for.
 
 ## Running it
 
-Open `index.html` in a browser. That's it — there's no build step and nothing
-to install. It calls Claude's API to produce each transcription draft and uses
-the browser's own storage for everything else, so it works as a plain static
-file (double-click it, or serve the folder with any static file host, e.g.
-GitHub Pages).
+Open `index.html` in a browser, or visit it via GitHub Pages. That's it —
+there's no build step and nothing to install. It calls Claude's API to
+produce each transcription draft and stores everything else (confirmed text,
+progress, glossary) in the browser's own IndexedDB, so it works as a plain
+static file with no server or database of its own.
 
 ## Using it
 
@@ -44,11 +44,24 @@ GitHub Pages).
 ## Pausing and resuming
 
 Your progress, confirmed transcriptions, and glossary all persist
-automatically between sessions. The one thing that isn't persisted is the raw
-scanned PDF itself — browser storage isn't built to hold hundreds of megabytes
-of scans indefinitely. When you come back, re-select the same PDF from the
-Library tab; the tool recognizes it (by file content, not just name) and
+automatically between sessions — as long as you come back in the **same
+browser, on the same device**. When you return, re-select the same PDF from
+the Library tab; the tool recognizes it (by file content, not just name) and
 resumes exactly where you stopped, with all prior pages intact.
+
+The raw scanned PDF itself is never stored by the tool — browser storage
+isn't built to hold hundreds of megabytes of scans indefinitely. That's why
+re-selecting the file each session is required.
+
+### Backups matter here
+
+Because everything lives in this one browser's storage, it can be lost if you
+clear your browser's site data, switch browsers, or move to a new computer.
+Use the **Download backup** button in the Library tab regularly — it saves a
+single JSON file with all your confirmed transcriptions, progress, and
+glossary. **Restore backup** loads one back in, merging it with whatever is
+already there. Keep a copy of these backup files somewhere separate from the
+browser itself (cloud drive, email to yourself, external drive).
 
 ## How transcription accuracy improves over time
 
