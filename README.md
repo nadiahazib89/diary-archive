@@ -1,0 +1,72 @@
+# Diary Archive
+
+A single-page tool for transcribing scanned handwritten diaries — built for a
+collection of Malaysian personal diaries from the 1970s, written mostly in
+English with Malay names and slang throughout.
+
+It runs entirely in the browser. No backend, no install, no server to pay for.
+
+## What it does
+
+- **Library** — add one or more scanned diary PDFs. Each is tracked
+  separately, with a progress bar.
+- **Transcribe** — page by page: the scan is shown next to an editable draft
+  transcription. You review, correct, and confirm before moving to the next
+  page ("confirm before next"). Nothing advances without your sign-off.
+- **Glossary** — as you confirm pages, the tool notices recurring names and
+  Malay words/slang and offers to save them. Later pages are transcribed with
+  that glossary as reference, so spelling of names and terms stays consistent
+  across hundreds of pages. You can also add or edit entries by hand.
+- **Browse** — every confirmed page, searchable in one place.
+
+## Running it
+
+Open `index.html` in a browser. That's it — there's no build step and nothing
+to install. It calls Claude's API to produce each transcription draft and uses
+the browser's own storage for everything else, so it works as a plain static
+file (double-click it, or serve the folder with any static file host, e.g.
+GitHub Pages).
+
+## Using it
+
+1. **Library tab** — drop in a scanned PDF. It's read directly in your
+   browser; the file itself is never uploaded anywhere except the one page
+   image sent to Claude for each transcription.
+2. Click **Open** to start transcribing from wherever you last left off.
+3. **Transcribe tab** — for each page, a draft transcription appears next to
+   the scan. Edit the text as needed, review any suggested glossary terms,
+   then **Confirm & next page**. Use **Re-run OCR** if the draft is poor, or
+   **Skip page** to move on without saving anything for that page.
+4. **Browse tab** — search across everything you've confirmed so far.
+5. **Glossary tab** — see and edit the running list of names, Malay
+   words/slang, and handwriting notes the tool is using for consistency.
+
+## Pausing and resuming
+
+Your progress, confirmed transcriptions, and glossary all persist
+automatically between sessions. The one thing that isn't persisted is the raw
+scanned PDF itself — browser storage isn't built to hold hundreds of megabytes
+of scans indefinitely. When you come back, re-select the same PDF from the
+Library tab; the tool recognizes it (by file content, not just name) and
+resumes exactly where you stopped, with all prior pages intact.
+
+## How transcription accuracy improves over time
+
+There's no model training involved — no labeled dataset, no fine-tuning step.
+Instead, every confirmed page can contribute new entries to a running
+glossary (names, Malay slang, handwriting quirks). That glossary is included
+as context on every subsequent transcription request, so the model has
+increasingly specific information about this particular diary and author as
+you progress. See `ARCHITECTURE.md` for the full design.
+
+## Limitations
+
+- Requires a network connection (calls the Claude API per page).
+- Very large scans may take a moment to render; the tool downsamples images
+  before sending them for transcription to keep things fast.
+- This is a personal transcription tool, not a general-purpose OCR product —
+  it's tuned for one author's handwriting and one glossary at a time.
+
+## License
+
+Use, modify, and adapt freely for your own archival work.
