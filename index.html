@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <style>
   :root{
     --bg: #1B1E24;
@@ -368,22 +368,31 @@ async function exportDiary(id, format){
   }
 
   // .docx via the docx library (loaded from CDN as the global `docx`)
-  const { Document, Packer, Paragraph, HeadingLevel } = docx;
-  const children = [
-    new Paragraph({text: entry.name, heading: HeadingLevel.TITLE}),
-    new Paragraph({text: pageNums.length + ' confirmed pages', spacing:{after:400}})
-  ];
-  for(const p of pageNums){
-    children.push(new Paragraph({text: 'Page ' + p, heading: HeadingLevel.HEADING_2, spacing:{before:300, after:120}}));
-    const lines = pages[p].text.trim().split('\n');
-    for(const line of lines){
-      children.push(new Paragraph({text: line}));
-    }
+  if(typeof docx === 'undefined'){
+    showToast('Word export library failed to load — check your connection and try again.');
+    return;
   }
-  const doc = new Document({sections: [{children}]});
-  const blob = await Packer.toBlob(doc);
-  triggerDownload(blob, safeFilename(entry.name) + '.docx');
-  showToast('Downloaded ' + pageNums.length + ' pages as Word doc');
+  try{
+    const { Document, Packer, Paragraph, HeadingLevel } = docx;
+    const children = [
+      new Paragraph({text: entry.name, heading: HeadingLevel.TITLE}),
+      new Paragraph({text: pageNums.length + ' confirmed pages', spacing:{after:400}})
+    ];
+    for(const p of pageNums){
+      children.push(new Paragraph({text: 'Page ' + p, heading: HeadingLevel.HEADING_2, spacing:{before:300, after:120}}));
+      const lines = pages[p].text.trim().split('\n');
+      for(const line of lines){
+        children.push(new Paragraph({text: line}));
+      }
+    }
+    const doc = new Document({sections: [{children}]});
+    const blob = await Packer.toBlob(doc);
+    triggerDownload(blob, safeFilename(entry.name) + '.docx');
+    showToast('Downloaded ' + pageNums.length + ' pages as Word doc');
+  }catch(err){
+    console.error('docx export failed', err);
+    showToast('Word export failed — try the .txt export instead, or try again.');
+  }
 }
 function wireBackup(){
   document.getElementById('exportBtn').addEventListener('click', exportBackup);
