@@ -585,8 +585,11 @@ async function renderTranscribePage(){
   const pdfDoc = loaded[activeId].pdfDoc;
   const page = await pdfDoc.getPage(activePage);
   const baseViewport = page.getViewport({scale:1});
-  const targetWidth = 900;
-  const scale = targetWidth / baseViewport.width;
+  // Claude's vision system uses detail up to ~2000-2576px on the long edge;
+  // sending less than that throws away detail the model could have used.
+  const targetLongEdge = 2000;
+  const longSide = Math.max(baseViewport.width, baseViewport.height);
+  const scale = Math.min(targetLongEdge / longSide, 3); // never upscale a tiny scan absurdly
   const viewport = page.getViewport({scale});
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width; canvas.height = viewport.height;
@@ -623,6 +626,38 @@ function renderConfirmedState(saved){
     showToast('Changes saved');
   };
   document.getElementById('rerunOcr').onclick = ()=> runTranscription();
+}
+
+function extractDraft(rawText){
+  const cleaned = rawText.replace(/```json|```/g,'').trim();
+
+  // 1. Try a clean parse first — the common case.
+  try{
+    const parsed = JSON.parse(cleaned);
+    if(parsed && typeof parsed.transcription === 'string'){
+      return {transcription: parsed.transcription, new_terms: parsed.new_terms || []};
+    }
+  }catch(e){ /* fall through to recovery below */ }
+
+  // 2. JSON was malformed or cut off (e.g. hit the token limit mid-string).
+  //    Pull the transcription field out by hand and un-escape it manually,
+  //    so the user sees real line breaks instead of literal backslash-n.
+  let match = cleaned.match(/"transcription"\s*:\s*"((?:\\.|[^"\\])*)"/s);
+  let body;
+  if(match){
+    body = match[1];
+  } else {
+    // No closing quote found — the response was likely truncated mid-string.
+    // Take everything after the opening quote as a best-effort recovery.
+    const openMatch = cleaned.match(/"transcription"\s*:\s*"([\s\S]*)$/);
+    body = openMatch ? openMatch[1] : cleaned;
+  }
+  const text = body
+    .replace(/\\r\\n|\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
+    .trim();
+  return {transcription: text, new_terms: []};
 }
 
 async function runTranscription(){
@@ -668,7 +703,7 @@ Only list a new_term if it is a proper name or Malay word/slang that appears on 
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 1000,
+        max_tokens: 2000,
         messages: [{
           role: "user",
           content: [
@@ -688,13 +723,7 @@ Only list a new_term if it is a proper name or Malay word/slang that appears on 
     }
     const data = await response.json();
     const textBlock = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    let parsed;
-    try{
-      const cleaned = textBlock.replace(/```json|```/g,'').trim();
-      parsed = JSON.parse(cleaned);
-    }catch(e){
-      parsed = {transcription: textBlock, new_terms: []};
-    }
+    const parsed = extractDraft(textBlock);
     pendingDraft = parsed;
     renderDraftState(parsed);
   }catch(err){

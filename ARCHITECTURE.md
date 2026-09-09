@@ -89,6 +89,27 @@ pair that serializes the entire registry, context pack, and every diary's
 confirmed pages to a single downloadable JSON file, so users have a way to
 move data between browsers or protect against data loss.
 
+### Image resolution
+
+Pages are rendered at up to 2000px on the long edge before being sent for
+transcription. Claude's vision system has a native resolution ceiling
+(roughly 1568–2576px on the long edge depending on model tier) — sending
+less than that throws away legible detail for no benefit; sending much more
+just gets downscaled server-side. 2000px sits comfortably inside that useful
+range for handwriting-dense scans.
+
+### Recovering from malformed responses
+
+The model is asked to reply with strict JSON, but vision responses
+occasionally come back slightly malformed — most often truncated mid-string
+if a page has enough text to approach the response length limit. Rather than
+trust a bare `JSON.parse` and fall back to dumping raw, unparsed text (which
+surfaces literal `\n` characters to the user), `extractDraft()` degrades in
+stages: full JSON parse first, then a regex pull of the `transcription`
+field with manual un-escaping, then a best-effort recovery of an
+unterminated string if the response was cut off mid-sentence. The user
+always sees readable text with real line breaks, even on a partial response.
+
 ### Transcription request shape
 
 The tool authenticates as a "bring your own key" client-side app: the user's
