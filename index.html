@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <style>
   :root{
     --bg: #1B1E24;
@@ -66,6 +67,7 @@
 
   .diary-row{
     display:flex;align-items:center;gap:16px;padding:14px 4px;border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
   }
   .diary-row:last-child{border-bottom:none;}
   .diary-name{font-family:'Source Serif 4',serif;font-size:15px;flex:1;min-width:0;}
@@ -334,7 +336,55 @@ function updateKeyStatus(){
   el.textContent = apiKey ? 'A key is saved in this browser.' : 'No key saved yet — transcription won\'t work until one is added.';
 }
 
-/* ---------- backup / restore ---------- */
+/* ---------- export ---------- */
+function triggerDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function safeFilename(name){
+  return name.trim().replace(/[^a-z0-9\- ]/gi,'').replace(/\s+/g,'-').toLowerCase() || 'diary';
+}
+
+async function exportDiary(id, format){
+  const entry = registry.find(d=>d.id===id);
+  const pages = await getDiaryPages(id);
+  const pageNums = Object.keys(pages).map(Number).sort((a,b)=>a-b);
+  if(pageNums.length === 0){
+    showToast('No confirmed pages yet for "' + entry.name + '"');
+    return;
+  }
+
+  if(format === 'txt'){
+    let content = entry.name + '\n' + '='.repeat(entry.name.length) + '\n\n';
+    for(const p of pageNums){
+      content += 'Page ' + p + '\n' + '-'.repeat(('Page ' + p).length) + '\n' + pages[p].text.trim() + '\n\n';
+    }
+    triggerDownload(new Blob([content], {type:'text/plain'}), safeFilename(entry.name) + '.txt');
+    showToast('Downloaded ' + pageNums.length + ' pages as text');
+    return;
+  }
+
+  // .docx via the docx library (loaded from CDN as the global `docx`)
+  const { Document, Packer, Paragraph, HeadingLevel } = docx;
+  const children = [
+    new Paragraph({text: entry.name, heading: HeadingLevel.TITLE}),
+    new Paragraph({text: pageNums.length + ' confirmed pages', spacing:{after:400}})
+  ];
+  for(const p of pageNums){
+    children.push(new Paragraph({text: 'Page ' + p, heading: HeadingLevel.HEADING_2, spacing:{before:300, after:120}}));
+    const lines = pages[p].text.trim().split('\n');
+    for(const line of lines){
+      children.push(new Paragraph({text: line}));
+    }
+  }
+  const doc = new Document({sections: [{children}]});
+  const blob = await Packer.toBlob(doc);
+  triggerDownload(blob, safeFilename(entry.name) + '.docx');
+  showToast('Downloaded ' + pageNums.length + ' pages as Word doc');
+}
 function wireBackup(){
   document.getElementById('exportBtn').addEventListener('click', exportBackup);
   document.getElementById('importInput').addEventListener('change', e=>{
@@ -490,6 +540,10 @@ async function renderLibrary(){
         ? `<button class="primary small" data-open="${d.id}">Open</button>`
         : `<label class="ghost small resume-inline" style="cursor:pointer;">Select file to resume<input type="file" accept="application/pdf" data-resume="${d.id}"></label>`
       }
+      <div style="display:flex;gap:6px;">
+        <button class="ghost small" data-export-docx="${d.id}">Export .docx</button>
+        <button class="ghost small" data-export-txt="${d.id}">Export .txt</button>
+      </div>
     `;
     wrap.appendChild(row);
   }
@@ -503,6 +557,12 @@ async function renderLibrary(){
   });
   wrap.querySelectorAll('[data-open]').forEach(btn=>{
     btn.addEventListener('click', ()=> openDiary(btn.dataset.open));
+  });
+  wrap.querySelectorAll('[data-export-docx]').forEach(btn=>{
+    btn.addEventListener('click', ()=> exportDiary(btn.dataset.exportDocx, 'docx'));
+  });
+  wrap.querySelectorAll('[data-export-txt]').forEach(btn=>{
+    btn.addEventListener('click', ()=> exportDiary(btn.dataset.exportTxt, 'txt'));
   });
   wrap.querySelectorAll('[data-resume]').forEach(inp=>{
     inp.addEventListener('change', async (e)=>{

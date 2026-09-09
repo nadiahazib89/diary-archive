@@ -66,6 +66,12 @@ static file with no server or database of its own.
 5. **Glossary tab** — see and edit the running list of names, Malay
    words/slang, and handwriting notes the tool is using for consistency.
 
+5. **Library tab** — each diary has **Export .docx** and **Export .txt**
+   buttons. Both pull together every confirmed page for that diary, in page
+   order, with page headings, and download it straight to your computer.
+   Works even if the diary's PDF isn't currently loaded — export reads only
+   from confirmed text already saved, not the scan itself.
+
 ## Pausing and resuming
 
 Your progress, confirmed transcriptions, and glossary all persist
