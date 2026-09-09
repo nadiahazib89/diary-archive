@@ -19,6 +19,31 @@ It runs entirely in the browser. No backend, no install, no server to pay for.
   across hundreds of pages. You can also add or edit entries by hand.
 - **Browse** — every confirmed page, searchable in one place.
 
+## Setup
+
+This tool calls Claude directly from your browser, so you need your own
+Anthropic API key — separate from any claude.ai subscription, billed
+pay-as-you-go.
+
+1. Go to [platform.claude.com](https://platform.claude.com), sign in (or
+   create an account), and go to **Settings → API keys** to create one.
+2. Open `index.html` (or your GitHub Pages link), go to the **Settings**
+   tab, paste the key in, and click **Save key**. It's stored only in your
+   browser and sent only to Anthropic's API — never anywhere else.
+3. Add a small amount of credit to your Anthropic account (a few dollars is
+   plenty to start). Transcribing a diary page costs a fraction of a cent;
+   at official September 2026 rates (~$2 per million input tokens, ~$10 per
+   million output tokens), transcribing roughly 2,000 pages across five
+   diaries comes out to somewhere in the low tens of dollars total — a rough
+   estimate, not a guarantee, since actual cost depends on how dense each
+   page is.
+
+**A note on hosting this publicly:** if your GitHub Pages link is public,
+don't treat it as a "try it live" demo to share around — the page never
+stores *your* key in its source code, but anyone who opens it would need to
+enter their own key to use it, and there's no reason to invite that. Keep
+the link for your own use.
+
 ## Running it
 
 Open `index.html` in a browser, or visit it via GitHub Pages. That's it —

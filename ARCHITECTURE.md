@@ -91,6 +91,15 @@ move data between browsers or protect against data loss.
 
 ### Transcription request shape
 
+The tool authenticates as a "bring your own key" client-side app: the user's
+own Anthropic API key is sent with each request, along with the
+`anthropic-dangerous-direct-browser-access: true` header that Anthropic
+requires to allow direct browser calls (without it, the API blocks
+cross-origin requests as a CSRF protection — reasonable for a production
+app shipping a shared key, but this tool never embeds a key in its own
+source, so that protection isn't relevant here). The model used is
+`claude-sonnet-5`, the current public Claude model as of September 2026.
+
 Each request sends one page image plus a prompt asking the model to return
 strict JSON:
 
